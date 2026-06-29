@@ -1,25 +1,6 @@
-/*
-   Sistema de Gestion y Prediccion de Contaminacion del Aire
-   Programacion 1 - ISWZ1102
-   Integrantes:
-   -
-   -
-   -
-*/
-
 #include <stdio.h>
 #include <string.h>
 
-#define NUM_ZONAS 5
-#define DIAS 30
-
-// Limites aceptables segun la OMS (ug/m3 y ppm)
-#define LIM_PM25 15
-#define LIM_NO2 25
-#define LIM_SO2 40
-#define LIM_CO2 1000
-
-// Estructura para guardar los datos de cada zona
 struct Zona {
     char nombre[30];
     float co2;
@@ -29,13 +10,20 @@ struct Zona {
     float temperatura;
     float viento;
     float humedad;
-    float historico[DIAS];  // PM2.5 de los ultimos 30 dias
+    float historico[30];
 };
 
-// Carga los datos de ejemplo de las 5 zonas
-void cargarDatos(struct Zona zonas[]) {
-    float bases[NUM_ZONAS] = {17, 12, 20, 10, 14};
+struct Zona zonas[5];
+int total = 5;
+
+float limitePM25 = 15;
+float limiteNO2 = 25;
+float limiteSO2 = 40;
+float limiteCO2 = 1000;
+
+int cargarDatos() {
     int i, d;
+    float bases[5] = {17, 12, 20, 10, 14};
 
     strcpy(zonas[0].nombre, "Centro");
     zonas[0].co2 = 950; zonas[0].so2 = 35; zonas[0].no2 = 28; zonas[0].pm25 = 18;
@@ -57,167 +45,159 @@ void cargarDatos(struct Zona zonas[]) {
     zonas[4].co2 = 880; zonas[4].so2 = 30; zonas[4].no2 = 20; zonas[4].pm25 = 14;
     zonas[4].temperatura = 23; zonas[4].viento = 11; zonas[4].humedad = 68;
 
-    // Llenamos el historico de los ultimos 30 dias de cada zona
-    for (i = 0; i < NUM_ZONAS; i++) {
-        for (d = 0; d < DIAS; d++) {
+    for (i = 0; i < total; i++) {
+        for (d = 0; d < 30; d++) {
             zonas[i].historico[d] = bases[i] - 3 + (d % 7);
         }
     }
+    return 0;
 }
 
-void mostrarMenu() {
-    printf("\n=============================================\n");
-    printf("  SISTEMA DE CONTAMINACION DEL AIRE\n");
-    printf("=============================================\n");
-    printf("1. Monitoreo de contaminacion actual\n");
-    printf("2. Prediccion de niveles (24 horas) y alertas\n");
-    printf("3. Promedios historicos (30 dias)\n");
-    printf("4. Recomendaciones\n");
-    printf("5. Exportar reporte a archivo\n");
-    printf("6. Salir\n");
-    printf("Elija una opcion: ");
-}
-
-// Requerimiento 1: muestra los niveles actuales y los compara con los limites
-void monitoreoActual(struct Zona zonas[]) {
-    int i;
-    printf("\n--- MONITOREO DE CONTAMINACION ACTUAL ---\n");
-    for (i = 0; i < NUM_ZONAS; i++) {
-        printf("\nZona: %s\n", zonas[i].nombre);
-        printf("  CO2 : %.1f ppm   ", zonas[i].co2);
-        if (zonas[i].co2 > LIM_CO2) printf("(EXCEDE)\n"); else printf("(OK)\n");
-        printf("  SO2 : %.1f       ", zonas[i].so2);
-        if (zonas[i].so2 > LIM_SO2) printf("(EXCEDE)\n"); else printf("(OK)\n");
-        printf("  NO2 : %.1f       ", zonas[i].no2);
-        if (zonas[i].no2 > LIM_NO2) printf("(EXCEDE)\n"); else printf("(OK)\n");
-        printf("  PM2.5: %.1f      ", zonas[i].pm25);
-        if (zonas[i].pm25 > LIM_PM25) printf("(EXCEDE)\n"); else printf("(OK)\n");
-    }
-}
-
-// Requerimiento 2: predice el PM2.5 de las proximas 24h con promedio ponderado
-// Usa un puntero a la zona
 float predecir(struct Zona *z) {
     int d;
-    float suma = 0, pesos = 0, base, factor = 1.0;
     int peso;
+    float suma = 0;
+    float pesos = 0;
+    float resultado;
+    float *p = &suma;
 
-    // Promedio ponderado de los ultimos 7 dias (mas peso a los dias recientes)
-    for (d = DIAS - 7; d < DIAS; d++) {
-        peso = d - (DIAS - 7) + 1;   // 1,2,3,4,5,6,7
-        suma = suma + z->historico[d] * peso;
+    for (d = 23; d < 30; d++) {
+        peso = d - 22;
+        *p = *p + (z->historico[d] * peso);
         pesos = pesos + peso;
     }
-    base = suma / pesos;
+    resultado = suma / pesos;
 
-    // Ajuste por el clima actual
-    if (z->viento < 10) factor = factor + 0.10;     // poco viento concentra la contaminacion
-    if (z->temperatura > 30) factor = factor + 0.05;
-    if (z->humedad > 80) factor = factor - 0.05;
-
-    return base * factor;
-}
-
-// Requerimiento 3: muestra la prediccion y emite alertas
-void prediccionYAlertas(struct Zona zonas[]) {
-    int i;
-    float pred;
-    printf("\n--- PREDICCION 24H Y ALERTAS ---\n");
-    for (i = 0; i < NUM_ZONAS; i++) {
-        pred = predecir(&zonas[i]);
-        printf("\nZona %s -> PM2.5 previsto: %.1f\n", zonas[i].nombre, pred);
-        if (pred > LIM_PM25) {
-            printf("  ALERTA: se preve que la contaminacion supere el limite (%d)\n", LIM_PM25);
-        } else {
-            printf("  Nivel dentro de lo aceptable\n");
-        }
+    if (z->viento < 10) {
+        resultado = resultado + resultado * 0.10;
     }
+    if (z->temperatura > 30) {
+        resultado = resultado + resultado * 0.05;
+    }
+    if (z->humedad > 80) {
+        resultado = resultado - resultado * 0.05;
+    }
+    return resultado;
 }
 
-// Requerimiento 4: promedio del historico y comparacion con limite OMS
-// Usa un puntero a la zona
 float promedioHistorico(struct Zona *z) {
     int d;
     float suma = 0;
-    for (d = 0; d < DIAS; d++) {
+    for (d = 0; d < 30; d++) {
         suma = suma + z->historico[d];
     }
-    return suma / DIAS;
+    return suma / 30;
 }
 
-void promediosHistoricos(struct Zona zonas[]) {
+int monitoreo() {
     int i;
-    float prom;
-    printf("\n--- PROMEDIOS HISTORICOS (30 DIAS) ---\n");
-    for (i = 0; i < NUM_ZONAS; i++) {
-        prom = promedioHistorico(&zonas[i]);
-        printf("Zona %s -> promedio PM2.5: %.1f  ", zonas[i].nombre, prom);
-        if (prom > LIM_PM25) printf("(supera el limite OMS)\n");
-        else printf("(dentro del limite OMS)\n");
+    printf("\nMonitoreo de contaminacion actual:\n");
+    for (i = 0; i < total; i++) {
+        printf("\nZona: %s\n", zonas[i].nombre);
+        printf("CO2: %.1f ppm  ", zonas[i].co2);
+        if (zonas[i].co2 > limiteCO2) printf("EXCEDE\n"); else printf("OK\n");
+        printf("SO2: %.1f      ", zonas[i].so2);
+        if (zonas[i].so2 > limiteSO2) printf("EXCEDE\n"); else printf("OK\n");
+        printf("NO2: %.1f      ", zonas[i].no2);
+        if (zonas[i].no2 > limiteNO2) printf("EXCEDE\n"); else printf("OK\n");
+        printf("PM2.5: %.1f    ", zonas[i].pm25);
+        if (zonas[i].pm25 > limitePM25) printf("EXCEDE\n"); else printf("OK\n");
     }
+    return 0;
 }
 
-// Requerimiento 5: recomendaciones de mitigacion
-void recomendaciones(struct Zona zonas[]) {
+int prediccion() {
     int i;
     float pred;
-    printf("\n--- RECOMENDACIONES ---\n");
-    for (i = 0; i < NUM_ZONAS; i++) {
+    printf("\nPrediccion de PM2.5 para las proximas 24 horas:\n");
+    for (i = 0; i < total; i++) {
         pred = predecir(&zonas[i]);
-        printf("\nZona %s:\n", zonas[i].nombre);
-        if (pred > LIM_PM25 || zonas[i].pm25 > LIM_PM25) {
-            printf("  - Reducir el trafico vehicular en la zona\n");
-            printf("  - Suspender actividades al aire libre\n");
-            printf("  - Cierre temporal de industrias contaminantes\n");
+        printf("\nZona %s -> PM2.5 previsto: %.1f\n", zonas[i].nombre, pred);
+        if (pred > limitePM25) {
+            printf("ALERTA: se preve que se supere el limite (%.0f)\n", limitePM25);
         } else {
-            printf("  - Los niveles son aceptables, mantener el monitoreo\n");
+            printf("Nivel dentro de lo aceptable\n");
         }
     }
+    return 0;
 }
 
-// Requerimiento 6: exporta los datos y predicciones a un archivo
-void exportarReporte(struct Zona zonas[]) {
+int promedios() {
+    int i;
+    float prom;
+    printf("\nPromedios historicos de los ultimos 30 dias:\n");
+    for (i = 0; i < total; i++) {
+        prom = promedioHistorico(&zonas[i]);
+        printf("Zona %s -> promedio PM2.5: %.1f  ", zonas[i].nombre, prom);
+        if (prom > limitePM25) printf("supera el limite OMS\n");
+        else printf("dentro del limite OMS\n");
+    }
+    return 0;
+}
+
+int recomendaciones() {
+    int i;
+    float pred;
+    printf("\nRecomendaciones:\n");
+    for (i = 0; i < total; i++) {
+        pred = predecir(&zonas[i]);
+        printf("\nZona %s:\n", zonas[i].nombre);
+        if (pred > limitePM25 || zonas[i].pm25 > limitePM25) {
+            printf("- Reducir el trafico vehicular en la zona\n");
+            printf("- Suspender actividades al aire libre\n");
+            printf("- Cierre temporal de industrias contaminantes\n");
+        } else {
+            printf("- Niveles aceptables, mantener el monitoreo\n");
+        }
+    }
+    return 0;
+}
+
+int exportar() {
     int i;
     FILE *archivo;
     archivo = fopen("reporte.txt", "w");
     if (archivo == NULL) {
         printf("\nNo se pudo crear el archivo.\n");
-        return;
+        return 0;
     }
 
     fprintf(archivo, "REPORTE DE CONTAMINACION DEL AIRE\n");
     fprintf(archivo, "=================================\n\n");
-    for (i = 0; i < NUM_ZONAS; i++) {
+    for (i = 0; i < total; i++) {
         fprintf(archivo, "Zona: %s\n", zonas[i].nombre);
-        fprintf(archivo, "  CO2: %.1f  SO2: %.1f  NO2: %.1f  PM2.5: %.1f\n",
+        fprintf(archivo, "CO2: %.1f  SO2: %.1f  NO2: %.1f  PM2.5: %.1f\n",
                 zonas[i].co2, zonas[i].so2, zonas[i].no2, zonas[i].pm25);
-        fprintf(archivo, "  Promedio historico PM2.5: %.1f\n", promedioHistorico(&zonas[i]));
-        fprintf(archivo, "  PM2.5 previsto 24h: %.1f\n\n", predecir(&zonas[i]));
+        fprintf(archivo, "Promedio historico PM2.5: %.1f\n", promedioHistorico(&zonas[i]));
+        fprintf(archivo, "PM2.5 previsto 24h: %.1f\n\n", predecir(&zonas[i]));
     }
     fclose(archivo);
-    printf("\nReporte guardado en 'reporte.txt'\n");
+    printf("\nReporte guardado en reporte.txt\n");
+    return 0;
 }
 
 int main() {
-    struct Zona zonas[NUM_ZONAS];
     int opcion;
 
-    cargarDatos(zonas);
+    cargarDatos();
 
     do {
-        mostrarMenu();
+        printf("\n1. Monitoreo de contaminacion actual\n");
+        printf("2. Prediccion y alertas\n");
+        printf("3. Promedios historicos\n");
+        printf("4. Recomendaciones\n");
+        printf("5. Exportar reporte\n");
+        printf("0. Salir\n");
+        printf("Opcion: ");
         scanf("%d", &opcion);
 
-        switch (opcion) {
-            case 1: monitoreoActual(zonas); break;
-            case 2: prediccionYAlertas(zonas); break;
-            case 3: promediosHistoricos(zonas); break;
-            case 4: recomendaciones(zonas); break;
-            case 5: exportarReporte(zonas); break;
-            case 6: printf("\nSaliendo del programa...\n"); break;
-            default: printf("\nOpcion no valida\n");
-        }
-    } while (opcion != 6);
+        if (opcion == 1) monitoreo();
+        else if (opcion == 2) prediccion();
+        else if (opcion == 3) promedios();
+        else if (opcion == 4) recomendaciones();
+        else if (opcion == 5) exportar();
+
+    } while (opcion != 0);
 
     return 0;
 }
