@@ -20,8 +20,6 @@ gcc main.c -o programa
 ./programa
 ```
 
-## Integrantes
+## Autor
 
--
--
--
+Keneth Guerrero
